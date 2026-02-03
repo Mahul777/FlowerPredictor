@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuberflow Prediction App</title>
+</head>
+<body>
+    <h1>Prediction</h1>
+    <form action="/" method="post">
+        <label for="sepal_length_cm">Sepal Length (cm):</label>
+        <input type="text" id="sepal_length_cm" name="sepal_length_cm" required>
+        <br>
+        <label for="sepal_width_cm">Sepal Width (cm):</label>
+        <input type="text" id="sepal_width_cm" name="sepal_width_cm" required>
+        <br>
+        <label for="petal_length_cm">Petal Length (cm):</label>
+        <input type="text" id="petal_length_cm" name="petal_length_cm" required>
+        <br>
+        <label for="petal_width_cm">Petal Width (cm):</label>
+        <input type="text" id="petal_width_cm" name="petal_width_cm" required>
+        <br>
+        <input type="submit" value="Submit">
+    </form>
+
+    {% if prediction %}
+        <h2>Prediction Results:</h2>
+        <p>Sepal Length: {{ request.form.get('sepal_length_cm') }}</p>
+        <p>Sepal Width: {{ request.form.get('sepal_width_cm') }}</p>
+        <p>Petal Length: {{ request.form.get('petal_length_cm') }}</p>
+        <p>Petal Width: {{ request.form.get('petal_width_cm') }}</p>
+        <h3>Prediction: {{ prediction['prediction'] }}</h3>
+    {% endif %}
+</body>
+</html>
+
