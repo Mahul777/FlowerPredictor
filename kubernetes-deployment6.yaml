@@ -1,0 +1,40 @@
+# This YAML file defines two Kubernetes resources: Deployment and Service.
+
+# Deployment Resource - Manages the deployment of the application.
+apiVersion: apps/v1  # Specifies the API version for the Deployment resource.
+kind: Deployment  # This is a Deployment resource. It manages a set of replicated Pods.
+metadata:
+  name: mlops-app  # The name of the deployment resource.
+
+spec:
+  replicas: 2  # The number of replicas (instances) of the pod you want to run. In this case, two instances.
+  selector:  # A selector that determines which Pods belong to this deployment.
+    matchLabels:
+      app: mlops-app  # The label selector that matches Pods with the label 'app: mlops-app'.
+  template:
+    metadata:
+      labels:
+        app: mlops-app  # This label will be applied to the Pods created by this Deployment.
+    spec:
+      containers:
+        - name: mlops-app  # Name of the container inside the pod.
+          image: us-central1-docker.pkg.dev/mlops-new-447207/mlops-app/mlops-app:latest  # The Docker image used for the container.
+          ports:
+            - containerPort: 5000  # Exposes port 5000 from the container (where the app is running).
+  
+# Service Resource - Defines a Service that exposes the deployed app to the outside world.
+---
+apiVersion: v1  # The API version for the Service resource.
+kind: Service  # This is a Service resource. A Service allows communication to the Pods.
+metadata:
+  name: mlops-service  # The name of the service.
+
+spec:
+  selector:
+    app: mlops-app  # Selects Pods with the label 'app: mlops-app' to be part of this service.
+  ports:
+    - protocol: TCP  # The protocol used for communication. TCP is specified here.
+      port: 80  # The port on which the service is exposed externally (accessible outside the cluster).
+      targetPort: 5000  # The target port on the Pods that the service forwards traffic to (the app runs on port 5000).
+  type: LoadBalancer  # This service will be exposed externally using a load balancer. 
+  # When using `LoadBalancer`, Kubernetes will provision an external load balancer to distribute traffic to the Pods.

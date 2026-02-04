@@ -1,0 +1,84 @@
+# CircleCI configuration version 2.1
+version: 2.1
+
+# Define the executors for running jobs. Executors define the environment where the jobs will run.
+executors:
+  docker-executor:
+    docker:
+      - image: google/cloud-sdk:latest  # Use the latest Google Cloud SDK Docker image for executing commands
+    working_directory: ~/repo  # Define the working directory for the job, the repo will be checked out here
+
+# Define jobs - a job is a set of steps that are executed in an executor environment
+jobs:
+  # Job to checkout the code from the repository
+  checkout_code:
+    executor: docker-executor  # Use the docker-executor defined above
+    steps:
+      - checkout  # Checkout the repository code from GitHub or other VCS (version control system)
+
+  # Job to build and push the Docker image to Google Cloud Container Registry (GCR)
+  build_docker_image:
+    executor: docker-executor  # Use the docker-executor defined above
+    steps:
+      - checkout  # Checkout the code from the repository
+
+      # Set up remote Docker to enable Docker commands (like build and push) to run on the remote environment
+      - setup_remote_docker
+
+      # Authenticate with Google Cloud using the service account key stored in the $GCLOUD_SERVICE_KEY environment variable
+      - run:
+          name: Authenticate with Google Cloud  # Step name for logging purposes
+          command: |
+              echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json  # Decode the service account key from base64 and save to a JSON file
+              gcloud auth activate-service-account --key-file=gcp-key.json  # Authenticate using the service account key
+              gcloud auth configure-docker us-central1-docker.pkg.dev || gcloud auth configure-docker  # Configure Docker to authenticate with GCR
+
+      # Build the Docker image and push it to Google Cloud Registry (GCR)
+      - run:
+          name: Build and Push Image  # Step name for logging purposes
+          command: |
+              docker build -t us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops-app/mlops-app:latest .  # Build the Docker image with the latest tag
+              docker push us-central1-docker.pkg.dev/$GOOGLE_PROJECT_ID/mlops-app/mlops-app:latest  # Push the built image to the Google Container Registry
+
+  # Job to deploy the application to Google Kubernetes Engine (GKE)
+  deploy_to_gke:
+    executor: docker-executor  # Use the docker-executor defined above
+    steps:
+      - checkout  # Checkout the code from the repository
+
+      # Set up remote Docker for deploying
+      - setup_remote_docker
+
+      # Authenticate with Google Cloud to allow kubectl to interact with GKE
+      - run:
+          name: Authenticate with Google Cloud  # Step name for logging purposes
+          command: |
+              echo "$GCLOUD_SERVICE_KEY" | base64 --decode > gcp-key.json  # Decode the service account key and save to a JSON file
+              gcloud auth activate-service-account --key-file=gcp-key.json  # Authenticate using the service account key
+              gcloud auth configure-docker us-central1-docker.pkg.dev || gcloud auth configure-docker  # Configure Docker to authenticate with GCR
+
+      # Configure kubectl (Kubernetes CLI) to connect to the GKE cluster
+      - run:
+          name: Configure GKE  # Step name for logging purposes
+          command: |
+              gcloud container clusters get-credentials $GKE_CLUSTER --region $GOOGLE_COMPUTE_REGION --project $GOOGLE_PROJECT_ID  # Set up kubectl to use the credentials for the specified GKE cluster
+
+      # Deploy the application to GKE using kubectl
+      - run:
+          name: Deploy to GKE  # Step name for logging purposes
+          command: |
+              kubectl apply -f kubernetes-deployment.yaml  # Apply the Kubernetes deployment configuration defined in the 'kubernetes-deployment.yaml' file
+
+# Define workflows to manage the sequence of jobs to run in the pipeline
+workflows:
+  version: 2  # Workflow version (circleci v2)
+
+  deploy_pipeline:  # Define the name of the workflow
+    jobs:
+      - checkout_code  # First job to run: checkout the code from the repo
+      - build_docker_image:  # Next job: build the Docker image
+          requires:
+            - checkout_code  # The build job depends on the checkout_code job
+      - deploy_to_gke:  # Final job: deploy to GKE
+          requires:
+            - build_docker_image  # The deploy job depends on the build_docker_image job
